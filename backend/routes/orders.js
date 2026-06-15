@@ -2,7 +2,13 @@ import express from 'express';
 import Razorpay from 'razorpay';
 import Order from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
+import User from '../models/User.js';
 import { verifyToken } from '../middleware/auth.js';
+import {
+  notifyOrderAccepted,
+  notifyRiderOnTheWay,
+  notifyOrderDelivered,
+} from '../notifications/sender.js';
 
 const router = express.Router();
 
@@ -192,7 +198,7 @@ router.patch('/:id/status', async (req, res, next) => {
     order.status = status;
     const updatedOrder = await order.save();
 
-    // Map status to specific event names as requested
+    // 1. Socket.IO real-time event
     const eventMap = {
       'Order Placed': 'order:placed',
       'Accepted': 'order:accepted',
@@ -204,8 +210,21 @@ router.patch('/:id/status', async (req, res, next) => {
     const eventName = eventMap[status];
     if (req.io && eventName) {
       req.io.to(`order:${order._id.toString()}`).emit(eventName, updatedOrder);
-      // General status update event
       req.io.to(`order:${order._id.toString()}`).emit('order:status_update', updatedOrder);
+    }
+
+    // 2. FCM Push Notification — fetch customer FCM token
+    const customer = await User.findById(order.userId).select('fcmToken');
+    const orderId = order._id.toString();
+
+    if (customer?.fcmToken) {
+      if (status === 'Accepted') {
+        notifyOrderAccepted(customer.fcmToken, orderId);
+      } else if (status === 'Out for Delivery') {
+        notifyRiderOnTheWay(customer.fcmToken, orderId);
+      } else if (status === 'Delivered') {
+        notifyOrderDelivered(customer.fcmToken, orderId);
+      }
     }
 
     res.status(200).json({

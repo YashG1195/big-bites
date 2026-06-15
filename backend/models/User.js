@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
     },
+    fcmToken: {
+      type: String,
+      default: null,
+    },
     addresses: [
       {
         street: String,

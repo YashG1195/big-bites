@@ -14,6 +14,7 @@ import './config/firebaseAdmin.js'; // Initialize Firebase Admin
 
 import restaurantRoutes from './routes/restaurants.js';
 import orderRoutes from './routes/orders.js';
+import userRoutes from './routes/users.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 // Load env vars
@@ -117,6 +118,7 @@ apiRouter.get('/health', (req, res) => {
 app.use('/api/v1', apiRouter);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // Error Handling Middlewares
 app.use(notFound);
