@@ -8,9 +8,18 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import admin from 'firebase-admin';
 
+// ─── Sentry MUST be initialized before any other imports that could throw ─────
+import {
+  initSentry,
+  sentryRequestHandler,
+  sentryTracingHandler,
+  sentryErrorHandler,
+} from './config/sentry.js';
+initSentry();
+
 import connectDB from './config/db.js';
-import './config/redis.js'; // Initialize Redis
-import './config/firebaseAdmin.js'; // Initialize Firebase Admin
+import './config/redis.js';
+import './config/firebaseAdmin.js';
 
 import restaurantRoutes from './routes/restaurants.js';
 import orderRoutes from './routes/orders.js';
@@ -26,10 +35,14 @@ connectDB();
 const app = express();
 const httpServer = createServer(app);
 
+// ─── Sentry request + tracing handlers (must be FIRST app middlewares) ────────
+app.use(sentryRequestHandler);
+app.use(sentryTracingHandler);
+
 // Configure Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: '*', // In production, restrict to your app's domain
+    origin: '*',
     methods: ['GET', 'POST', 'PATCH'],
   },
 });
@@ -59,19 +72,15 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id} (User: ${socket.user.uid})`);
 
-  // Join a specific order room
   socket.on('join_order_room', (orderId) => {
     const roomName = `order:${orderId}`;
     socket.join(roomName);
     console.log(`Socket ${socket.id} joined room ${roomName}`);
   });
 
-  // Rider sends location update
   socket.on('rider:location', (data) => {
     const { lat, lng, orderId } = data;
     if (!orderId) return;
-    
-    // Broadcast to everyone in the order room EXCEPT the sender
     socket.to(`order:${orderId}`).emit('rider:location', { latitude: lat, longitude: lng });
   });
 
@@ -80,7 +89,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Attach io to req object so routes can access it
+// Attach io to req
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -90,7 +99,7 @@ app.use((req, res, next) => {
 app.use(helmet());
 app.use(cors());
 
-// Rate Limiting: 100 requests per 15 minutes per IP
+// Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -107,20 +116,21 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- ROUTES ---
+// ─── Routes ──────────────────────────────────────────────────────────────────
 const apiRouter = express.Router();
-
 apiRouter.get('/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Big Bites API is running smoothly' });
 });
 
-// Prefix all routes with /api/v1
 app.use('/api/v1', apiRouter);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
 
-// Error Handling Middlewares
+// ─── Sentry error handler (before our own handler, after all routes) ──────────
+app.use(sentryErrorHandler);
+
+// ─── Custom Error Handling ────────────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 

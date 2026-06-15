@@ -1,5 +1,6 @@
 import admin from '../config/firebaseAdmin.js';
 import User from '../models/User.js';
+import { setSentryUser } from '../config/sentry.js';
 
 export const verifyToken = async (req, res, next) => {
   let token;
@@ -22,6 +23,7 @@ export const verifyToken = async (req, res, next) => {
         user = await User.create({ phone: '+911234567890', name: 'Mock User' });
       }
       req.dbUser = user;
+      setSentryUser(user); // Tag Sentry events with this user
       return next();
     }
 
@@ -33,6 +35,7 @@ export const verifyToken = async (req, res, next) => {
     // Assuming we save the phone number in our DB when they verify OTP on the client
     const user = await User.findOne({ phone: decodedToken.phone_number });
     req.dbUser = user;
+    setSentryUser(user); // Tag Sentry events with this user
 
     next();
   } catch (error) {
