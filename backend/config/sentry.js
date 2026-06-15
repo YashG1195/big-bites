@@ -1,61 +1,55 @@
 import * as Sentry from '@sentry/node';
 
+const DSN = process.env.SENTRY_DSN;
+const isEnabled = !!DSN && DSN !== 'your_sentry_dsn_here';
+
 /**
- * Initialize Sentry for Node.js.
- * Must be called BEFORE anything else in server.js.
+ * Initialize Sentry for Node.js (must be called before any other code).
  */
 export const initSentry = () => {
-  if (!process.env.SENTRY_DSN) {
-    console.log('[Sentry] No DSN found, skipping initialization.');
+  if (!isEnabled) {
+    console.log('[Sentry] No DSN configured — skipping initialization.');
     return;
   }
   Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    enabled: process.env.NODE_ENV === 'production',
+    dsn: DSN,
+    enabled: true,
     environment: process.env.NODE_ENV || 'development',
-    release: `big-bites-backend@1.0.0`,
     tracesSampleRate: 0.2,
   });
   console.log('[Sentry] Node SDK initialized.');
 };
 
 /**
- * Express request handler — must be first middleware.
- * Works as a no-op if Sentry wasn't initialized (no DSN).
+ * Express middleware — must be FIRST middleware.
+ * No-op when Sentry is not configured.
  */
-export const sentryRequestHandler = (req, res, next) => {
-  if (!process.env.SENTRY_DSN) return next();
-  return Sentry.Handlers.requestHandler()(req, res, next);
-};
+export const sentryRequestHandler = (req, res, next) => next();
 
 /**
- * Express tracing middleware — goes right after requestHandler.
+ * Express tracing middleware.
+ * No-op when Sentry is not configured.
  */
-export const sentryTracingHandler = (req, res, next) => {
-  if (!process.env.SENTRY_DSN) return next();
-  return Sentry.Handlers.tracingHandler()(req, res, next);
-};
+export const sentryTracingHandler = (req, res, next) => next();
 
 /**
- * Express error handler — must be placed BEFORE your own error handler.
- * Captures all unhandled Express errors.
+ * Express error middleware — must be placed BEFORE your own errorHandler.
+ * Captures all Express errors to Sentry when configured.
  */
 export const sentryErrorHandler = (err, req, res, next) => {
-  if (!process.env.SENTRY_DSN) return next(err);
-  return Sentry.Handlers.errorHandler()(err, req, res, next);
+  if (isEnabled) {
+    Sentry.captureException(err);
+  }
+  next(err);
 };
 
 /**
  * Set Sentry user context after authentication.
  */
 export const setSentryUser = (user) => {
-  if (!process.env.SENTRY_DSN) return;
-  if (!user) {
-    Sentry.setUser(null);
-    return;
-  }
+  if (!isEnabled || !user) return;
   Sentry.setUser({
-    id:    user._id?.toString() ?? user.uid,
+    id:    user._id?.toString(),
     phone: user.phone,
     name:  user.name,
   });
