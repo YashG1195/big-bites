@@ -3,28 +3,29 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { NavigationContainer } from '@react-navigation/native';
-import * as Sentry from '@sentry/react-native';
 import RootNavigator from './src/navigation/RootNavigator';
 import useNotifications from './src/hooks/useNotifications';
 import InAppToast from './src/components/InAppToast';
 import SentryErrorBoundary from './src/components/SentryErrorBoundary';
 
-// ─── Initialize Sentry as early as possible ───────────────────────────────────
-// DSN is pulled from the EAS/Expo env variable (set in eas.json > env)
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  // Only send events in production — keep local dev console clean
-  enabled: process.env.NODE_ENV === 'production',
-  // Attach JS stack traces to all events
-  attachStacktrace: true,
-  // Track navigation changes automatically
-  integrations: [
-    Sentry.mobileReplayIntegration(),
-  ],
-  tracesSampleRate: 0.2,   // 20% of transactions for performance monitoring
-  profilesSampleRate: 0.1, // 10% of traces for profiling
-  environment: process.env.NODE_ENV || 'development',
-});
+// ─── Sentry — only init when DSN is present (skips gracefully in local dev) ───
+let Sentry = null;
+try {
+  Sentry = require('@sentry/react-native');
+  if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      enabled: process.env.NODE_ENV === 'production',
+      attachStacktrace: true,
+      tracesSampleRate: 0.2,
+      environment: process.env.NODE_ENV || 'development',
+    });
+  }
+} catch (e) {
+  // Sentry native module not available in Expo Go — continue without it
+  console.log('[Sentry] Skipped (native module not linked):', e.message);
+  Sentry = null;
+}
 
 // ─── Inner component (has Redux + nav context) ────────────────────────────────
 const AppContent = ({ navigationRef }) => {
@@ -65,19 +66,14 @@ function App() {
   const navigationRef = useRef(null);
 
   return (
-    // SentryErrorBoundary catches render errors and reports them to Sentry
     <SentryErrorBoundary>
       <Provider store={store}>
         <NavigationContainer
           ref={navigationRef}
-          // Notify Sentry when the active route changes (screen tracking)
-          onReady={() => {
-            Sentry.setTag('initial_screen', navigationRef.current?.getCurrentRoute()?.name);
-          }}
           onStateChange={() => {
-            const route = navigationRef.current?.getCurrentRoute();
-            if (route) {
-              Sentry.setTag('active_screen', route.name);
+            if (Sentry) {
+              const route = navigationRef.current?.getCurrentRoute();
+              if (route) Sentry.setTag('active_screen', route.name);
             }
           }}
         >
@@ -88,5 +84,5 @@ function App() {
   );
 }
 
-// Wrap with Sentry.wrap for automatic crash reporting and session tracking
-export default Sentry.wrap(App);
+// Wrap with Sentry only if available
+export default Sentry ? Sentry.wrap(App) : App;

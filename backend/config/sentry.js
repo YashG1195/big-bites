@@ -1,42 +1,55 @@
 import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
 
 /**
  * Initialize Sentry for Node.js.
- * Call this BEFORE anything else in server.js.
- *
- * DSN is loaded from process.env.SENTRY_DSN (set via EAS secrets or .env).
+ * Must be called BEFORE anything else in server.js.
  */
 export const initSentry = () => {
+  if (!process.env.SENTRY_DSN) {
+    console.log('[Sentry] No DSN found, skipping initialization.');
+    return;
+  }
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     enabled: process.env.NODE_ENV === 'production',
     environment: process.env.NODE_ENV || 'development',
-    release: `big-bites-backend@${process.env.npm_package_version || '1.0.0'}`,
-    integrations: [
-      // Automatically instrument http calls and db queries
-      ...Sentry.autoDiscoverNodePerformanceMonitoringIntegrations(),
-    ],
+    release: `big-bites-backend@1.0.0`,
     tracesSampleRate: 0.2,
-    profilesSampleRate: 0.1,
   });
   console.log('[Sentry] Node SDK initialized.');
 };
 
-/** Express request handler — must be first middleware */
-export const sentryRequestHandler = Sentry.Handlers.requestHandler();
-
-/** Express tracing middleware — goes right after requestHandler */
-export const sentryTracingHandler = Sentry.Handlers.tracingHandler();
+/**
+ * Express request handler — must be first middleware.
+ * Works as a no-op if Sentry wasn't initialized (no DSN).
+ */
+export const sentryRequestHandler = (req, res, next) => {
+  if (!process.env.SENTRY_DSN) return next();
+  return Sentry.Handlers.requestHandler()(req, res, next);
+};
 
 /**
- * Express error handler — must be LAST middleware, before your own errorHandler.
- * It captures all unhandled Express errors and forwards them to Sentry.
+ * Express tracing middleware — goes right after requestHandler.
  */
-export const sentryErrorHandler = Sentry.Handlers.errorHandler();
+export const sentryTracingHandler = (req, res, next) => {
+  if (!process.env.SENTRY_DSN) return next();
+  return Sentry.Handlers.tracingHandler()(req, res, next);
+};
 
-/** Set user context on Sentry after authentication. */
+/**
+ * Express error handler — must be placed BEFORE your own error handler.
+ * Captures all unhandled Express errors.
+ */
+export const sentryErrorHandler = (err, req, res, next) => {
+  if (!process.env.SENTRY_DSN) return next(err);
+  return Sentry.Handlers.errorHandler()(err, req, res, next);
+};
+
+/**
+ * Set Sentry user context after authentication.
+ */
 export const setSentryUser = (user) => {
+  if (!process.env.SENTRY_DSN) return;
   if (!user) {
     Sentry.setUser(null);
     return;

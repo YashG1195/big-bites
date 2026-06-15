@@ -1,7 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import * as Sentry from '@sentry/react-native';
 import { COLORS } from '../constants/colors';
+
+// Lazy-load Sentry — may not be available in Expo Go
+let Sentry = null;
+try { Sentry = require('@sentry/react-native'); } catch (_) {}
 
 /**
  * SentryErrorBoundary
@@ -24,11 +27,9 @@ class SentryErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Capture the error with full context
+    if (!Sentry) return;
     const eventId = Sentry.captureException(error, {
-      contexts: {
-        react: { componentStack: errorInfo.componentStack },
-      },
+      contexts: { react: { componentStack: errorInfo.componentStack } },
     });
     this.setState({ eventId });
   }
@@ -38,7 +39,7 @@ class SentryErrorBoundary extends React.Component {
   };
 
   handleReport = () => {
-    if (this.state.eventId) {
+    if (Sentry && this.state.eventId) {
       Sentry.showReportDialog({ eventId: this.state.eventId });
     }
   };

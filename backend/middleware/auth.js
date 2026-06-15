@@ -1,11 +1,11 @@
-import admin from '../config/firebaseAdmin.js';
+import { firebaseAuth } from '../config/firebaseAdmin.js';
 import User from '../models/User.js';
 import { setSentryUser } from '../config/sentry.js';
 
 export const verifyToken = async (req, res, next) => {
   let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+  if (req.headers.authorization?.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
   }
 
@@ -14,28 +14,30 @@ export const verifyToken = async (req, res, next) => {
   }
 
   try {
-    // If we are using mock frontend token "mock-jwt-token-xyz-987", we can bypass this for dev testing:
+    // Dev mock token bypass
     if (token === 'mock-jwt-token-xyz-987') {
       req.user = { uid: 'mock-uid-123', phone: '+911234567890' };
-      // Try to find mock user or create one
       let user = await User.findOne({ phone: '+911234567890' });
       if (!user) {
         user = await User.create({ phone: '+911234567890', name: 'Mock User' });
       }
       req.dbUser = user;
-      setSentryUser(user); // Tag Sentry events with this user
+      setSentryUser(user);
       return next();
     }
 
     // Real Firebase token verification
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken; // contains uid, phone_number, etc.
+    const auth = firebaseAuth();
+    if (!auth) {
+      return res.status(503).json({ success: false, message: 'Auth service unavailable (dummy Firebase credentials in dev)' });
+    }
 
-    // Fetch user from DB based on phone number or UID
-    // Assuming we save the phone number in our DB when they verify OTP on the client
+    const decodedToken = await auth.verifyIdToken(token);
+    req.user = decodedToken;
+
     const user = await User.findOne({ phone: decodedToken.phone_number });
     req.dbUser = user;
-    setSentryUser(user); // Tag Sentry events with this user
+    setSentryUser(user);
 
     next();
   } catch (error) {

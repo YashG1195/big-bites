@@ -6,7 +6,6 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import admin from 'firebase-admin';
 
 // ─── Sentry MUST be initialized before any other imports that could throw ─────
 import {
@@ -19,7 +18,7 @@ initSentry();
 
 import connectDB from './config/db.js';
 import './config/redis.js';
-import './config/firebaseAdmin.js';
+import { firebaseAuth } from './config/firebaseAdmin.js';
 
 import restaurantRoutes from './routes/restaurants.js';
 import orderRoutes from './routes/orders.js';
@@ -60,7 +59,10 @@ io.use(async (socket, next) => {
       return next();
     }
 
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    const auth = firebaseAuth();
+    if (!auth) return next(new Error('Auth service unavailable'));
+
+    const decodedToken = await auth.verifyIdToken(token);
     socket.user = decodedToken;
     next();
   } catch (error) {
