@@ -6,14 +6,14 @@ import RestaurantDetailScreen from '../screens/RestaurantDetailScreen';
 import PhoneEntryScreen from '../screens/PhoneEntryScreen';
 import OTPVerifyScreen from '../screens/OTPVerifyScreen';
 import OrderTrackingScreen from '../screens/OrderTrackingScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
+import AddAddressScreen from '../screens/AddAddressScreen';
+import SavedAddressesScreen from '../screens/SavedAddressesScreen';
 
 import { View, Text } from 'react-native';
 import { COLORS } from '../constants/colors';
 
 const Stack = createStackNavigator();
-
-// Placeholder screens for stack
-const CheckoutScreen = () => <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text>Checkout</Text></View>;
 
 export default function RootNavigator() {
   const { isAuthenticated } = useSelector((state) => state.auth);
@@ -37,6 +37,8 @@ export default function RootNavigator() {
           />
           <Stack.Screen name="RestaurantDetail" component={RestaurantDetailScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+          <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address', headerBackTitle: 'Back' }} />
+          <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} options={{ title: 'Saved Addresses', headerBackTitle: 'Back' }} />
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} options={{ headerShown: false }} />
         </>
       ) : (

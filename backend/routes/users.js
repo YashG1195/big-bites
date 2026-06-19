@@ -48,4 +48,128 @@ router.get('/me', verifyToken, async (req, res, next) => {
   }
 });
 
+/**
+ * @desc    Get user addresses
+ * @route   GET /api/v1/users/addresses
+ * @access  Private
+ */
+router.get('/addresses', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    res.status(200).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Add a new address
+ * @route   POST /api/v1/users/addresses
+ * @access  Private
+ */
+router.post('/addresses', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    const newAddress = req.body;
+    
+    if (newAddress.isDefault || user.addresses.length === 0) {
+      newAddress.isDefault = true;
+      user.addresses.forEach(addr => {
+        addr.isDefault = false;
+      });
+    }
+
+    user.addresses.push(newAddress);
+    await user.save();
+    
+    res.status(201).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Update an address
+ * @route   PATCH /api/v1/users/addresses/:addressId
+ * @access  Private
+ */
+router.patch('/addresses/:addressId', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    const address = user.addresses.id(req.params.addressId);
+    
+    if (!address) {
+      res.status(404);
+      throw new Error('Address not found');
+    }
+    
+    Object.assign(address, req.body);
+    
+    if (req.body.isDefault) {
+      user.addresses.forEach(addr => {
+        if (addr._id.toString() !== req.params.addressId) {
+          addr.isDefault = false;
+        }
+      });
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Delete an address
+ * @route   DELETE /api/v1/users/addresses/:addressId
+ * @access  Private
+ */
+router.delete('/addresses/:addressId', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    user.addresses.pull({ _id: req.params.addressId });
+    
+    if (user.addresses.length > 0 && !user.addresses.some(addr => addr.isDefault)) {
+      user.addresses[0].isDefault = true;
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Set default address
+ * @route   PATCH /api/v1/users/addresses/:addressId/default
+ * @access  Private
+ */
+router.patch('/addresses/:addressId/default', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    
+    let found = false;
+    user.addresses.forEach(addr => {
+      if (addr._id.toString() === req.params.addressId) {
+        addr.isDefault = true;
+        found = true;
+      } else {
+        addr.isDefault = false;
+      }
+    });
+
+    if (!found) {
+      res.status(404);
+      throw new Error('Address not found');
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

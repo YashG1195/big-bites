@@ -16,22 +16,20 @@ const userSchema = new mongoose.Schema(
     },
     addresses: [
       {
-        street: String,
-        city: String,
-        state: String,
-        zipCode: String,
-        location: {
-          type: { type: String, default: 'Point' },
-          coordinates: [Number], // [longitude, latitude]
-        },
+        label: { type: String, enum: ['Home', 'Work', 'Other'], default: 'Other' },
+        formattedAddress: { type: String, required: true },
+        lat: { type: Number, required: true },
+        lng: { type: Number, required: true },
+        placeId: String,
+        flatNo: String,
+        isDefault: { type: Boolean, default: false },
       },
     ],
   },
   { timestamps: true }
 );
 
-// Create geospatial index for location
-userSchema.index({ 'addresses.location': '2dsphere' });
+// (Geospatial index removed as we are using flat lat/lng)
 
 const User = mongoose.model('User', userSchema);
 export default User;

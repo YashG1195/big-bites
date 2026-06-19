@@ -4,16 +4,6 @@ import redisClient from '../config/redis.js';
 
 const router = express.Router();
 
-// Helper: try Redis get, return null if unavailable
-const cacheGet = async (key) => {
-  try { return await redisClient.get(key); } catch { return null; }
-};
-
-// Helper: try Redis set, fail silently if unavailable
-const cacheSet = async (key, ttl, value) => {
-  try { await redisClient.setex(key, ttl, value); } catch { /* no-op */ }
-};
-
 /**
  * @desc    Get all restaurants
  * @route   GET /api/v1/restaurants
@@ -21,15 +11,29 @@ const cacheSet = async (key, ttl, value) => {
  */
 router.get('/', async (req, res, next) => {
   try {
-    const cachedRestaurants = await cacheGet('restaurants:list');
+    // 1. Check Redis Cache
+    const cachedRestaurants = await redisClient.get('restaurants:list');
+    
     if (cachedRestaurants) {
-      return res.status(200).json({ success: true, source: 'cache', data: JSON.parse(cachedRestaurants) });
+      return res.status(200).json({
+        success: true,
+        source: 'cache',
+        data: JSON.parse(cachedRestaurants),
+      });
     }
 
+    // 2. Fallback to MongoDB
+    // We only select basic info for the list view, excluding the full menu for performance
     const restaurants = await Restaurant.find({}).select('-menu');
-    await cacheSet('restaurants:list', 300, JSON.stringify(restaurants));
 
-    res.status(200).json({ success: true, source: 'database', data: restaurants });
+    // 3. Set Cache (TTL: 5 minutes = 300 seconds)
+    await redisClient.setex('restaurants:list', 300, JSON.stringify(restaurants));
+
+    res.status(200).json({
+      success: true,
+      source: 'database',
+      data: restaurants,
+    });
   } catch (error) {
     next(error);
   }
@@ -43,16 +47,23 @@ router.get('/', async (req, res, next) => {
 router.get('/search', async (req, res, next) => {
   try {
     const query = req.query.q;
+    
     if (!query) {
       return res.status(400).json({ success: false, message: 'Please provide a search query' });
     }
 
+    // Use MongoDB Text Search index (no cache for search)
     const restaurants = await Restaurant.find(
       { $text: { $search: query } },
       { score: { $meta: 'textScore' } }
-    ).sort({ score: { $meta: 'textScore' } }).select('-menu');
+    )
+    .sort({ score: { $meta: 'textScore' } })
+    .select('-menu');
 
-    res.status(200).json({ success: true, data: restaurants });
+    res.status(200).json({
+      success: true,
+      data: restaurants,
+    });
   } catch (error) {
     next(error);
   }
@@ -68,19 +79,33 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params;
     const cacheKey = `restaurant:${id}`;
 
-    const cachedRestaurant = await cacheGet(cacheKey);
+    // 1. Check Cache
+    const cachedRestaurant = await redisClient.get(cacheKey);
+    
     if (cachedRestaurant) {
-      return res.status(200).json({ success: true, source: 'cache', data: JSON.parse(cachedRestaurant) });
+      return res.status(200).json({
+        success: true,
+        source: 'cache',
+        data: JSON.parse(cachedRestaurant),
+      });
     }
 
+    // 2. Fetch from DB
     const restaurant = await Restaurant.findById(id);
+
     if (!restaurant) {
       res.status(404);
       throw new Error('Restaurant not found');
     }
 
-    await cacheSet(cacheKey, 600, JSON.stringify(restaurant));
-    res.status(200).json({ success: true, source: 'database', data: restaurant });
+    // 3. Set Cache (TTL: 10 minutes = 600 seconds)
+    await redisClient.setex(cacheKey, 600, JSON.stringify(restaurant));
+
+    res.status(200).json({
+      success: true,
+      source: 'database',
+      data: restaurant,
+    });
   } catch (error) {
     next(error);
   }

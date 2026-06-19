@@ -9,20 +9,21 @@ const connectDB = async () => {
 
   while (retries < MAX_RETRIES) {
     try {
-      // useNewUrlParser and useUnifiedTopology are deprecated/removed in Mongoose 7+
       await mongoose.connect(process.env.MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000,
       });
-      console.log('[MongoDB] Connected successfully.');
+      console.log('MongoDB Connected Successfully');
       break;
     } catch (error) {
       retries += 1;
-      console.error(`[MongoDB] Connection error (attempt ${retries}/${MAX_RETRIES}):`, error.message);
+      console.error(`MongoDB Connection Error (Attempt ${retries}/${MAX_RETRIES}):`, error.message);
       if (retries >= MAX_RETRIES) {
-        // Don't exit — let the server keep running so health endpoint still works
-        console.error('[MongoDB] Max retries reached. Server continues without DB. Restart when MongoDB is available.');
-        return;
+        console.error('Failed to connect to MongoDB after maximum retries. Exiting...');
+        process.exit(1);
       }
+      // Wait for 2 seconds before retrying
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
