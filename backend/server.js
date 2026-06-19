@@ -23,6 +23,7 @@ import { firebaseAuth } from './config/firebaseAdmin.js';
 import restaurantRoutes from './routes/restaurants.js';
 import orderRoutes from './routes/orders.js';
 import userRoutes from './routes/users.js';
+import supportRoutes from './routes/support.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 // Load env vars
@@ -128,6 +129,7 @@ app.use('/api/v1', apiRouter);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/support', supportRoutes);
 
 // ─── Sentry error handler (before our own handler, after all routes) ──────────
 app.use(sentryErrorHandler);

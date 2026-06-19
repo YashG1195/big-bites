@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { io } from 'socket.io-client';
-import { ArrowLeft, Phone, MapPin, Navigation, Bike } from 'lucide-react-native';
+import { ArrowLeft, Phone, MapPin, Navigation, Bike, HeadphonesIcon } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { API_URL } from '../constants/api';
 
@@ -21,7 +21,8 @@ const STEPS = [
   'Delivered'
 ];
 
-export default function OrderTrackingScreen({ navigation }) {
+export default function OrderTrackingScreen({ route, navigation }) {
+  const { orderId } = route?.params || {};
   const mapRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const socketRef = useRef(null);
@@ -112,13 +113,21 @@ export default function OrderTrackingScreen({ navigation }) {
         />
       </MapView>
 
-      {/* Floating Back Button */}
-      <SafeAreaView className="absolute top-0 left-0 right-0 px-4 pointer-events-box-none">
+      {/* Floating Back Button & Support */}
+      <SafeAreaView className="absolute top-0 left-0 right-0 px-4 flex-row justify-between pointer-events-box-none">
         <TouchableOpacity 
-          className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-lg mt-2"
+          className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-lg mt-2 pointer-events-auto"
           onPress={() => navigation.goBack()}
         >
           <ArrowLeft color={COLORS.black} size={24} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          className="h-12 bg-white rounded-full px-4 flex-row items-center justify-center shadow-lg mt-2 pointer-events-auto"
+          onPress={() => navigation.navigate('SupportChat', { orderId })}
+        >
+          <HeadphonesIcon color={COLORS.primary} size={18} className="mr-2" />
+          <Text className="text-primary font-bold text-sm">Support</Text>
         </TouchableOpacity>
       </SafeAreaView>
 

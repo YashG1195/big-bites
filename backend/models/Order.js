@@ -45,6 +45,23 @@ const orderSchema = new mongoose.Schema(
     razorpayOrderId: {
       type: String,
     },
+    refunds: [{
+      amount: Number,
+      reason: String,
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      initiatedBy: {
+        type: String,
+        enum: ['ai', 'human', 'user']
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
   },
   { timestamps: true }
 );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { RefreshCcw, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
+import { RefreshCcw, CheckCircle2, Clock, XCircle, HeadphonesIcon } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -19,6 +20,7 @@ const getStatusIcon = (status, color) => {
 };
 
 export default function OrderHistoryCard({ order, onReorder, isReordering }) {
+  const navigation = useNavigation();
   const date = new Date(order.createdAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
   });
@@ -47,28 +49,40 @@ export default function OrderHistoryCard({ order, onReorder, isReordering }) {
         </Text>
       </View>
 
-      <View className="flex-row justify-between items-center border-t border-gray-100 pt-3">
-        <View className="flex-row items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-          {getStatusIcon(order.status, statusColor)}
-          <Text style={{ color: statusColor, fontWeight: '600', fontSize: 12, marginLeft: 4 }}>
-            {order.status}
-          </Text>
+      <View className="border-t border-gray-100 pt-3">
+        <View className="flex-row justify-between items-center mb-3">
+          <View className="flex-row items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+            {getStatusIcon(order.status, statusColor)}
+            <Text style={{ color: statusColor, fontWeight: '600', fontSize: 12, marginLeft: 4 }}>
+              {order.status}
+            </Text>
+          </View>
         </View>
 
-        <TouchableOpacity
-          className="flex-row items-center bg-[#FF6B35]/10 px-4 py-2 rounded-full border border-[#FF6B35]/20"
-          onPress={() => onReorder(order._id)}
-          disabled={isReordering}
-        >
-          {isReordering ? (
-            <ActivityIndicator size="small" color="#FF6B35" />
-          ) : (
-            <>
-              <RefreshCcw size={16} color="#FF6B35" />
-              <Text className="text-[#FF6B35] font-bold ml-2 text-sm">Reorder</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            className="flex-row items-center py-2"
+            onPress={() => navigation.navigate('SupportChat', { orderId: order._id })}
+          >
+            <HeadphonesIcon color="#6B7280" size={16} className="mr-1.5" />
+            <Text className="text-gray-600 font-medium text-sm">Help with this order</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row items-center bg-[#FF6B35]/10 px-4 py-2 rounded-full border border-[#FF6B35]/20"
+            onPress={() => onReorder(order._id)}
+            disabled={isReordering}
+          >
+            {isReordering ? (
+              <ActivityIndicator size="small" color="#FF6B35" />
+            ) : (
+              <>
+                <RefreshCcw size={16} color="#FF6B35" />
+                <Text className="text-[#FF6B35] font-bold ml-2 text-sm">Reorder</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
