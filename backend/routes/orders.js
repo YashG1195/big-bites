@@ -28,13 +28,28 @@ const razorpay = new Razorpay({
  */
 router.get('/my', async (req, res, next) => {
   try {
-    const orders = await Order.find({ userId: req.dbUser._id })
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const startIndex = (page - 1) * limit;
+
+    const query = { userId: req.dbUser._id };
+    const total = await Order.countDocuments(query);
+
+    const orders = await Order.find(query)
       .populate('restaurantId', 'name image')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
       data: orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
   } catch (error) {
     next(error);
@@ -164,6 +179,70 @@ router.post('/', async (req, res, next) => {
         razorpayOrderId: savedOrder.razorpayOrderId,
       });
     }
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Preview/validate a reorder
+ * @route   POST /api/v1/orders/:id/reorder
+ * @access  Private
+ */
+router.post('/:id/reorder', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    if (order.userId.toString() !== req.dbUser._id.toString()) {
+      res.status(403);
+      throw new Error('Not authorized to reorder this order');
+    }
+
+    const restaurant = await Restaurant.findById(order.restaurantId);
+    
+    if (!restaurant) {
+      return res.status(200).json({
+        success: true,
+        restaurantOpen: false,
+        restaurantId: order.restaurantId,
+        available: [],
+        unavailable: order.items,
+        priceChanged: []
+      });
+    }
+
+    const available = [];
+    const unavailable = [];
+    const priceChanged = [];
+
+    order.items.forEach(orderItem => {
+      const currentMenuItem = restaurant.menu.id(orderItem.menuItemId);
+      
+      if (!currentMenuItem) {
+        unavailable.push(orderItem);
+      } else if (currentMenuItem.price !== orderItem.price) {
+        priceChanged.push({
+          ...orderItem.toObject(),
+          newPrice: currentMenuItem.price
+        });
+      } else {
+        available.push(orderItem);
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      restaurantOpen: restaurant.isOpen,
+      restaurantId: restaurant._id,
+      available,
+      unavailable,
+      priceChanged
+    });
 
   } catch (error) {
     next(error);

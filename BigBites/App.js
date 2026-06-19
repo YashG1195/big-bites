@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { NavigationContainer } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import useNotifications from './src/hooks/useNotifications';
 import InAppToast from './src/components/InAppToast';
@@ -77,7 +78,9 @@ function App() {
             }
           }}
         >
-          <AppContent navigationRef={navigationRef} />
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <AppContent navigationRef={navigationRef} />
+          </GestureHandlerRootView>
         </NavigationContainer>
       </Provider>
     </SentryErrorBoundary>

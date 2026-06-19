@@ -3,8 +3,11 @@ import { View, Text, TextInput, FlatList, Image, TouchableOpacity, Animated } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchRestaurants } from '../store/slices/restaurantsSlice';
-import { MapPin, ChevronDown, Search, Star, Clock, Utensils, Pizza, Coffee, Beef } from 'lucide-react-native';
+import { MapPin, ChevronDown, Search, Star, Clock, Utensils, Pizza, Coffee, Beef, RefreshCcw } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import api from '../services/api';
+import useReorder from '../hooks/useReorder';
+import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
 const CATEGORIES = [
   { id: '1', name: 'Biryani', icon: Beef },
@@ -17,9 +20,22 @@ const CATEGORIES = [
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();
   const { list: restaurants, isLoading } = useSelector((state) => state.restaurants);
+  
+  const [latestOrder, setLatestOrder] = useState(null);
+  const bottomSheetRef = React.useRef(null);
+  const { reorderingId, reorderData, processReorder, continueToCart } = useReorder(bottomSheetRef);
 
   useEffect(() => {
     dispatch(fetchRestaurants());
+    
+    // Fetch latest order for inline reorder
+    api.get('/orders/my?page=1&limit=1')
+      .then(res => {
+        if (res.data.data && res.data.data.length > 0) {
+          setLatestOrder(res.data.data[0]);
+        }
+      })
+      .catch(console.error);
   }, [dispatch]);
 
   const renderCategory = ({ item }) => {
@@ -129,6 +145,36 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={{ paddingRight: 20, paddingBottom: 10 }}
       />
       
+      {/* Reorder Latest Meal */}
+      {latestOrder && (
+        <View className="bg-white rounded-2xl p-4 mt-6 border border-[#FF6B35]/20 shadow-sm">
+          <Text className="text-text font-bold text-lg mb-2">Reorder your last meal</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 mr-4">
+              <Text className="font-bold text-gray-800">{latestOrder.restaurantId?.name}</Text>
+              <Text className="text-gray-500 text-xs mt-1" numberOfLines={1}>
+                {latestOrder.items.slice(0, 2).map(i => `${i.quantity} x ${i.name}`).join(', ')}
+                {latestOrder.items.length > 2 ? ` and ${latestOrder.items.length - 2} more` : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="bg-[#FF6B35] px-4 py-2 rounded-full flex-row items-center"
+              onPress={() => processReorder(latestOrder._id)}
+              disabled={reorderingId === latestOrder._id}
+            >
+              {reorderingId === latestOrder._id ? (
+                <Text className="text-white font-bold text-sm">Wait...</Text>
+              ) : (
+                <>
+                  <RefreshCcw size={14} color="#FFF" />
+                  <Text className="text-white font-bold text-sm ml-1">Reorder</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <Text className="text-text font-bold text-xl mt-6 mb-4">Top Restaurants</Text>
     </View>
   );
@@ -146,6 +192,73 @@ export default function HomeScreen({ navigation }) {
         )}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
+
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={['60%']}
+        enablePanDownToClose
+        backdropComponent={props => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+        )}
+      >
+        <BottomSheetView style={{ flex: 1, padding: 24, paddingBottom: 40 }}>
+          {reorderData && (
+            <>
+              <Text className="text-xl font-bold text-gray-800 mb-2">Reorder Summary</Text>
+              <Text className="text-gray-500 mb-4">Some items have changed since your last order.</Text>
+              
+              <View style={{ flex: 1 }}>
+                {reorderData.available.length > 0 && (
+                  <View className="mb-4">
+                    <Text className="font-bold text-gray-800 mb-2 uppercase text-xs tracking-wider">Available</Text>
+                    {reorderData.available.map(item => (
+                      <View key={item.menuItemId} className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                        <Text className="text-gray-800 flex-1">{item.quantity} x {item.name}</Text>
+                        <Text className="text-gray-800 font-medium">₹{item.price * item.quantity}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {reorderData.priceChanged.length > 0 && (
+                  <View className="mb-4">
+                    <Text className="font-bold text-[#F59E0B] mb-2 uppercase text-xs tracking-wider">Price Updated</Text>
+                    {reorderData.priceChanged.map(item => (
+                      <View key={item.menuItemId} className="py-2 border-b border-gray-100">
+                        <View className="flex-row justify-between items-center">
+                          <Text className="text-gray-800 flex-1">{item.quantity} x {item.name}</Text>
+                          <Text className="text-gray-800 font-medium">₹{item.newPrice * item.quantity}</Text>
+                        </View>
+                        <Text className="text-gray-400 text-xs mt-1 line-through">Old price: ₹{item.price}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {reorderData.unavailable.length > 0 && (
+                  <View className="mb-6">
+                    <Text className="font-bold text-red-500 mb-2 uppercase text-xs tracking-wider">No Longer Available</Text>
+                    {reorderData.unavailable.map(item => (
+                      <View key={item.menuItemId} className="flex-row justify-between items-center py-2 border-b border-gray-100 opacity-50">
+                        <Text className="text-gray-500 flex-1">{item.name}</Text>
+                        <Text className="text-gray-400 text-xs uppercase">Removed</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <TouchableOpacity
+                className="bg-[#FF6B35] rounded-xl py-4 flex-row justify-center items-center mt-4 shadow-sm"
+                onPress={continueToCart}
+              >
+                <Text className="text-white font-bold text-lg mr-2">Continue to Cart</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </BottomSheetView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }

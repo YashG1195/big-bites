@@ -20,6 +20,10 @@ const restaurantSchema = new mongoose.Schema(
       type: Number, // in minutes
       default: 30,
     },
+    isOpen: {
+      type: Boolean,
+      default: true,
+    },
     menu: [menuItemSchema],
   },
   { timestamps: true }

@@ -54,8 +54,14 @@ const cartSlice = createSlice({
       state.restaurantId = null;
       state.totalAmount = 0;
     },
+    replaceCart: (state, action) => {
+      const { items, restaurantId, totalAmount } = action.payload;
+      state.items = items;
+      state.restaurantId = restaurantId;
+      state.totalAmount = totalAmount;
+    },
   },
 });
 
-export const { addToCart, removeFromCart, clearCart } = cartSlice.actions;
+export const { addToCart, removeFromCart, clearCart, replaceCart } = cartSlice.actions;
 export default cartSlice.reducer;

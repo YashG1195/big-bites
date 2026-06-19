@@ -9,6 +9,7 @@ import OrderTrackingScreen from '../screens/OrderTrackingScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import AddAddressScreen from '../screens/AddAddressScreen';
 import SavedAddressesScreen from '../screens/SavedAddressesScreen';
+import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 
 import { View, Text } from 'react-native';
 import { COLORS } from '../constants/colors';
@@ -39,6 +40,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
           <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: 'Add Address', headerBackTitle: 'Back' }} />
           <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} options={{ title: 'Saved Addresses', headerBackTitle: 'Back' }} />
+          <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Your Orders', headerBackTitle: 'Back' }} />
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} options={{ headerShown: false }} />
         </>
       ) : (
