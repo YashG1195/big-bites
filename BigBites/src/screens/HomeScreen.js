@@ -8,6 +8,8 @@ import { COLORS } from '../constants/colors';
 import api from '../services/api';
 import useReorder from '../hooks/useReorder';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import FavouriteButton from '../components/FavouriteButton';
+import { useGetFavouriteRestaurantsQuery } from '../store/favouritesSlice';
 
 const CATEGORIES = [
   { id: '1', name: 'Biryani', icon: Beef },
@@ -24,6 +26,9 @@ export default function HomeScreen({ navigation }) {
   const [latestOrder, setLatestOrder] = useState(null);
   const bottomSheetRef = React.useRef(null);
   const { reorderingId, reorderData, processReorder, continueToCart } = useReorder(bottomSheetRef);
+  
+  const { data: favouriteRestaurants } = useGetFavouriteRestaurantsQuery();
+  const isFavourited = (id) => favouriteRestaurants?.some(r => r._id === id || r === id) || false;
 
   useEffect(() => {
     dispatch(fetchRestaurants());
@@ -81,6 +86,13 @@ export default function HomeScreen({ navigation }) {
             <Text className="text-white font-bold text-xs">{item.discount}</Text>
           </View>
         )}
+        <View className="absolute top-3 right-3">
+          <FavouriteButton 
+            type="restaurant" 
+            restaurantId={item.id} 
+            initialState={isFavourited(item.id)} 
+          />
+        </View>
       </View>
 
       <View className="p-4">

@@ -24,6 +24,10 @@ const restaurantSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    favouritesCount: {
+      type: Number,
+      default: 0,
+    },
     menu: [menuItemSchema],
   },
   { timestamps: true }

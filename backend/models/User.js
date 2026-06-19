@@ -25,6 +25,15 @@ const userSchema = new mongoose.Schema(
         isDefault: { type: Boolean, default: false },
       },
     ],
+    favouriteRestaurants: [
+      { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }
+    ],
+    favouriteDishes: [
+      {
+        restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' },
+        menuItemId: { type: mongoose.Schema.Types.ObjectId }
+      }
+    ],
   },
   { timestamps: true }
 );

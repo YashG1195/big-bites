@@ -5,6 +5,9 @@ import { useSelector } from 'react-redux';
 import { COLORS } from '../constants/colors';
 import CartBounce from '../components/CartBounce';
 import HomeScreen from '../screens/HomeScreen';
+import FavouritesScreen from '../screens/FavouritesScreen';
+import { Heart } from 'lucide-react-native';
+import { useGetFavouriteRestaurantsQuery, useGetFavouriteDishesQuery } from '../store/favouritesSlice';
 
 const Tab = createBottomTabNavigator();
 
@@ -44,6 +47,30 @@ const CartTabIcon = ({ color, focused }) => {
   );
 };
 
+// ─── Animated Favourites tab icon ──────────────────────────────────────────────
+const FavouritesTabIcon = ({ color, focused }) => {
+  const { data: restaurants } = useGetFavouriteRestaurantsQuery();
+  const { data: dishes } = useGetFavouriteDishesQuery();
+
+  let count = (restaurants?.length || 0);
+  if (dishes) {
+    count += dishes.reduce((acc, curr) => acc + curr.dishes.length, 0);
+  }
+
+  return (
+    <View style={styles.cartIconContainer}>
+      <Heart color={color} size={24} fill={focused ? color : 'transparent'} />
+      {count > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {count > 9 ? '9+' : count}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function TabNavigator() {
   return (
     <Tab.Navigator
@@ -80,6 +107,15 @@ export default function TabNavigator() {
           // Use our animated icon component
           tabBarIcon: ({ color, focused }) => (
             <CartTabIcon color={color} focused={focused} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Favourites"
+        component={FavouritesScreen}
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <FavouritesTabIcon color={color} focused={focused} />
           ),
         }}
       />

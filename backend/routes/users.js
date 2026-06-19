@@ -1,5 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -167,6 +168,126 @@ router.patch('/addresses/:addressId/default', verifyToken, async (req, res, next
 
     await user.save();
     res.status(200).json({ success: true, data: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Toggle favourite restaurant
+ * @route   POST /api/v1/users/favourites/restaurants/:restaurantId
+ * @access  Private
+ */
+router.post('/favourites/restaurants/:restaurantId', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id);
+    const { restaurantId } = req.params;
+
+    const isFavourited = user.favouriteRestaurants.includes(restaurantId);
+
+    if (isFavourited) {
+      user.favouriteRestaurants.pull(restaurantId);
+      await Restaurant.findByIdAndUpdate(restaurantId, { $inc: { favouritesCount: -1 } });
+    } else {
+      user.favouriteRestaurants.push(restaurantId);
+      await Restaurant.findByIdAndUpdate(restaurantId, { $inc: { favouritesCount: 1 } });
+    }
+
+    await user.save();
+
+    res.status(200).json({ success: true, isFavourited: !isFavourited });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Toggle favourite dish
+ * @route   POST /api/v1/users/favourites/dishes
+ * @access  Private
+ */
+router.post('/favourites/dishes', verifyToken, async (req, res, next) => {
+  try {
+    const { restaurantId, menuItemId } = req.body;
+    const user = await User.findById(req.dbUser._id);
+
+    const existingIndex = user.favouriteDishes.findIndex(
+      (dish) => dish.restaurantId.toString() === restaurantId && dish.menuItemId.toString() === menuItemId
+    );
+
+    let isFavourited = false;
+    if (existingIndex >= 0) {
+      user.favouriteDishes.splice(existingIndex, 1);
+    } else {
+      user.favouriteDishes.push({ restaurantId, menuItemId });
+      isFavourited = true;
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, isFavourited });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Get favourite restaurants
+ * @route   GET /api/v1/users/favourites/restaurants
+ * @access  Private
+ */
+router.get('/favourites/restaurants', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id).populate('favouriteRestaurants');
+    
+    // Filter out nulls in case a restaurant was deleted
+    const validRestaurants = user.favouriteRestaurants.filter(r => r !== null);
+    
+    // Reverse to show most recently added first
+    res.status(200).json({ success: true, data: validRestaurants.reverse() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @desc    Get favourite dishes grouped by restaurant
+ * @route   GET /api/v1/users/favourites/dishes
+ * @access  Private
+ */
+router.get('/favourites/dishes', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.dbUser._id).populate('favouriteDishes.restaurantId', 'name image menu');
+
+    const enrichedGrouped = {};
+
+    user.favouriteDishes.forEach((fav) => {
+      const restaurant = fav.restaurantId;
+      if (!restaurant) return; // Skip if deleted
+
+      const menuItem = restaurant.menu.id(fav.menuItemId);
+      if (!menuItem) return; // Skip if dish removed from menu
+
+      if (!enrichedGrouped[restaurant._id]) {
+        enrichedGrouped[restaurant._id] = {
+          restaurantId: restaurant._id,
+          restaurantName: restaurant.name,
+          dishes: []
+        };
+      }
+
+      enrichedGrouped[restaurant._id].dishes.push({
+        menuItemId: menuItem._id,
+        name: menuItem.name,
+        price: menuItem.price,
+        description: menuItem.description,
+        isVeg: menuItem.isVeg,
+        category: menuItem.category
+      });
+    });
+
+    const result = Object.values(enrichedGrouped);
+    // Sort so most recently modified groups might come first or just return as is
+    res.status(200).json({ success: true, data: result.reverse() });
   } catch (error) {
     next(error);
   }

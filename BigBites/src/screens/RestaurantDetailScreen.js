@@ -5,6 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, removeFromCart } from '../store/slices/cartSlice';
 import { ArrowLeft, Star, Plus, Minus, Info, Clock } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import FavouriteButton from '../components/FavouriteButton';
+import { useGetFavouriteRestaurantsQuery, useGetFavouriteDishesQuery } from '../store/favouritesSlice';
 
 const { width } = Dimensions.get('window');
 const HEADER_MAX_HEIGHT = 250;
@@ -43,6 +45,18 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeCategory, setActiveCategory] = useState('Starters');
+
+  const { data: favouriteRestaurants } = useGetFavouriteRestaurantsQuery();
+  const { data: favouriteDishesGroups } = useGetFavouriteDishesQuery();
+
+  const isRestaurantFavourited = favouriteRestaurants?.some(r => r._id === id || r === id) || false;
+  
+  const isDishFavourited = (menuItemId) => {
+    if (!favouriteDishesGroups) return false;
+    const group = favouriteDishesGroups.find(g => g.restaurantId === id);
+    if (!group) return false;
+    return group.dishes.some(d => d.menuItemId === menuItemId);
+  };
   
   const headerTranslateY = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
@@ -83,6 +97,17 @@ export default function RestaurantDetailScreen({ route, navigation }) {
           </View>
           <Text className="text-text font-medium text-base mb-1">₹{item.price}</Text>
           <Text className="text-textMuted text-sm" numberOfLines={2}>{item.description}</Text>
+          
+          <View className="mt-2 self-start">
+            <FavouriteButton 
+              type="dish" 
+              restaurantId={id}
+              menuItemId={item.id} 
+              initialState={isDishFavourited(item.id)} 
+              size={18}
+              containerStyle="bg-gray-50 rounded-full p-1 border border-gray-200"
+            />
+          </View>
         </View>
 
         <View className="items-center justify-center w-28">
@@ -140,6 +165,12 @@ export default function RestaurantDetailScreen({ route, navigation }) {
             >
               <ArrowLeft color="#FFFFFF" size={24} />
             </TouchableOpacity>
+            
+            <FavouriteButton 
+              type="restaurant" 
+              restaurantId={id} 
+              initialState={isRestaurantFavourited} 
+            />
           </View>
 
           <Animated.View style={{ opacity: imageOpacity }}>
