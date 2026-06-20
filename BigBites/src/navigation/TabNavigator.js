@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { COLORS } from '../constants/colors';
 import CartBounce from '../components/CartBounce';
 import HomeScreen from '../screens/HomeScreen';
+import SearchScreen from '../screens/SearchScreen';
 import FavouritesScreen from '../screens/FavouritesScreen';
 import { Heart } from 'lucide-react-native';
 import { useGetFavouriteRestaurantsQuery, useGetFavouriteDishesQuery } from '../store/favouritesSlice';
@@ -12,7 +13,6 @@ import { useGetFavouriteRestaurantsQuery, useGetFavouriteDishesQuery } from '../
 const Tab = createBottomTabNavigator();
 
 // Placeholder screens for tabs
-const SearchScreen  = () => <View style={styles.placeholder}><Text style={styles.placeholderText}>Search</Text></View>;
 const CartScreen    = () => <View style={styles.placeholder}><Text style={styles.placeholderText}>Cart</Text></View>;
 const ProfileScreen = () => <View style={styles.placeholder}><Text style={styles.placeholderText}>Profile</Text></View>;
 

@@ -138,14 +138,16 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {/* Search Bar */}
-      <View className="flex-row items-center bg-surface border border-border rounded-xl px-4 py-3 mb-2">
+      <TouchableOpacity 
+        className="flex-row items-center bg-surface border border-border rounded-xl px-4 py-3 mb-2 shadow-sm"
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate('Search')}
+      >
         <Search color={COLORS.primary} size={20} />
-        <TextInput 
-          placeholder="Restaurant name or dish..."
-          placeholderTextColor={COLORS.textMuted}
-          className="flex-1 ml-3 text-text font-medium"
-        />
-      </View>
+        <Text className="flex-1 ml-3 text-textMuted font-medium">
+          Try "healthy veg lunch under ₹200"...
+        </Text>
+      </TouchableOpacity>
 
       {/* Categories */}
       <FlatList

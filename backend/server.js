@@ -24,13 +24,16 @@ import restaurantRoutes from './routes/restaurants.js';
 import orderRoutes from './routes/orders.js';
 import userRoutes from './routes/users.js';
 import supportRoutes from './routes/support.js';
+import searchRoutes from './routes/search.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
+import { initElasticIndices } from './services/elasticClient.js';
 
 // Load env vars
 dotenv.config();
 
 // Connect to MongoDB
 connectDB();
+initElasticIndices();
 
 const app = express();
 const httpServer = createServer(app);
@@ -130,6 +133,7 @@ app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/support', supportRoutes);
+app.use('/api/v1/search', searchRoutes);
 
 // ─── Sentry error handler (before our own handler, after all routes) ──────────
 app.use(sentryErrorHandler);
