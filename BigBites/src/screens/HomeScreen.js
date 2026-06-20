@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, Image, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, TextInput, FlatList, Image, TouchableOpacity, Animated, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchRestaurants } from '../store/slices/restaurantsSlice';
@@ -10,6 +10,7 @@ import useReorder from '../hooks/useReorder';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import FavouriteButton from '../components/FavouriteButton';
 import { useGetFavouriteRestaurantsQuery } from '../store/favouritesSlice';
+import { useGetRecommendationsQuery } from '../store/recommendationsSlice';
 
 const CATEGORIES = [
   { id: '1', name: 'Biryani', icon: Beef },
@@ -22,6 +23,9 @@ const CATEGORIES = [
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();
   const { list: restaurants, isLoading } = useSelector((state) => state.restaurants);
+  
+  const [refreshing, setRefreshing] = useState(false);
+  const { data: recommendations, isLoading: isRecsLoading, refetch: refetchRecs } = useGetRecommendationsQuery();
   
   const [latestOrder, setLatestOrder] = useState(null);
   const bottomSheetRef = React.useRef(null);
@@ -42,6 +46,12 @@ export default function HomeScreen({ navigation }) {
       })
       .catch(console.error);
   }, [dispatch]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    dispatch(fetchRestaurants());
+    refetchRecs().finally(() => setRefreshing(false));
+  }, [dispatch, refetchRecs]);
 
   const renderCategory = ({ item }) => {
     const IconComponent = item.icon;
@@ -67,6 +77,51 @@ export default function HomeScreen({ navigation }) {
         <View className="w-1/2 h-4 bg-border rounded animate-pulse" />
       </View>
     </View>
+  );
+
+  const renderRecsSkeleton = () => (
+    <View className="flex-row">
+      {[1, 2].map(i => (
+        <View key={i} className="bg-white rounded-2xl mr-4 border border-gray-100 w-64 p-3 animate-pulse">
+          <View className="flex-row">
+            <View className="flex-1 pr-2">
+              <View className="w-3/4 h-4 bg-gray-200 rounded mb-2" />
+              <View className="w-1/2 h-3 bg-gray-200 rounded mb-2" />
+              <View className="w-1/4 h-3 bg-gray-200 rounded" />
+            </View>
+            <View className="w-16 h-16 bg-gray-200 rounded-xl" />
+          </View>
+          <View className="w-full h-3 bg-gray-200 rounded mt-3" />
+        </View>
+      ))}
+    </View>
+  );
+
+  const renderRecommendationCard = ({ item }) => (
+    <TouchableOpacity
+      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100 overflow-hidden w-64"
+      onPress={() => navigation.navigate('RestaurantDetail', { id: item.restaurant._id, highlightedDish: item.dish._id })}
+    >
+      <View className="flex-row p-3">
+        <View className="flex-1 pr-2">
+          <View className="flex-row items-center mb-1">
+            <View className={`w-2 h-2 rounded-sm border ${item.dish.isVeg ? 'border-green-600' : 'border-red-600'} items-center justify-center mr-1.5`}>
+               <View className={`w-1 h-1 rounded-full ${item.dish.isVeg ? 'bg-green-600' : 'bg-red-600'}`} />
+            </View>
+            <Text className="text-gray-800 font-bold text-sm flex-1" numberOfLines={1}>{item.dish.name}</Text>
+          </View>
+          <Text className="text-gray-500 text-xs mb-1" numberOfLines={1}>{item.restaurant.name}</Text>
+          <Text className="text-gray-800 font-bold text-xs mb-2">₹{item.dish.price}</Text>
+        </View>
+        <View className="w-16 h-16 bg-gray-100 rounded-xl items-center justify-center">
+          <Text className="text-2xl">🍽️</Text>
+        </View>
+      </View>
+      <View className="bg-primary/5 px-3 py-2 border-t border-primary/10 flex-row items-center">
+        <Star color={COLORS.primary} size={10} className="mr-1.5" />
+        <Text className="text-primary text-[10px] font-medium flex-1 italic" numberOfLines={2}>"{item.reason}"</Text>
+      </View>
+    </TouchableOpacity>
   );
 
   const renderRestaurantCard = ({ item }) => (
@@ -149,7 +204,6 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </TouchableOpacity>
 
-      {/* Categories */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -158,6 +212,27 @@ export default function HomeScreen({ navigation }) {
         renderItem={renderCategory}
         contentContainerStyle={{ paddingRight: 20, paddingBottom: 10 }}
       />
+      
+      {/* Picked For You Section */}
+      {(isRecsLoading || (recommendations && recommendations.length > 0)) && (
+        <View className="mt-6 mb-2">
+          <View className="flex-row items-center mb-3">
+            <Text className="text-text font-bold text-xl flex-1">✨ Picked for you</Text>
+          </View>
+          {isRecsLoading ? (
+             <ScrollView horizontal showsHorizontalScrollIndicator={false}>{renderRecsSkeleton()}</ScrollView>
+          ) : (
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={recommendations}
+              keyExtractor={(item, index) => `${item.dish._id}-${index}`}
+              renderItem={renderRecommendationCard}
+              contentContainerStyle={{ paddingRight: 20 }}
+            />
+          )}
+        </View>
+      )}
       
       {/* Reorder Latest Meal */}
       {latestOrder && (
@@ -205,6 +280,9 @@ export default function HomeScreen({ navigation }) {
           { length: 280, offset: 280 * index, index } // 280 is approx card height + margin
         )}
         contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+        }
       />
 
       <BottomSheet
